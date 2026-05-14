@@ -1,0 +1,48 @@
+name: OSSF Scorecard Analysis
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: read-all
+
+jobs:
+  ossf-scorecard-analysis:
+    name: Scorecard analysis
+    runs-on: ubuntu-latest
+    permissions:
+      # Needed if using Code scanning alerts
+      security-events: write
+      # Needed for GitHub OIDC token if publish_results is true
+      id-token: write
+
+    steps:
+      - name: 'Checkout code'
+        uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab
+        with:
+          persist-credentials: false
+
+      - name: 'Run analysis'
+        uses: ossf/scorecard-action@80e868c13c90f172d68d1f4501dee99e2479f7af
+        with:
+          results_file: results.sarif
+          results_format: sarif
+          # (Optional) fine-grained personal access token. Uncomment the `repo_token` line below if:
+          # - you want to enable the Branch-Protection check on a *public* repository, or
+          # To create the PAT, follow the steps in
+          # https://github.com/ossf/scorecard-action#authentication-with-fine-grained-pat-optional.
+          # repo_token: ${{ secrets.SCORECARD_TOKEN }}
+
+          # Publish the results for public repositories to enable scorecard badges. For more details, see
+          # https://github.com/ossf/scorecard-action#publishing-results.
+          publish_results: true
+
+      # Upload the results as artifacts (optional). Commenting out will disable uploads of run results in SARIF
+      # format to the repository Actions tab.
+      - name: 'Upload artifact'
+        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce
+        with:
+          name: SARIF file
+          path: results.sarif
+          retention-days: 5

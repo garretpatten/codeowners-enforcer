@@ -1,0 +1,12 @@
+# https://github.com/DavidAnson/markdownlint-cli2
+# Used by markdownlint-cli2 and by CI (garretpatten/quality-checks) when run from repo root.
+globs:
+  - '**/*.md'
+  - '**/*.markdown'
+ignores:
+  - '**/node_modules/**'
+  - '**/dist/**'
+  - '**/coverage/**'
+  - '**/lcov-report/**'
+  - '**/.git/**'
+gitignore: true

@@ -1,0 +1,19 @@
+---
+name: 'Quality Checks'
+
+on: [pull_request]
+
+jobs:
+  quality-checks:
+    name: 'Linters'
+    # Markdown/YAML ignores: repo-root `.markdownlint-cli2.yaml` and `.yamllint.yaml` (`ignore:`).
+    # yamllint disable-line rule:line-length
+    uses: garretpatten/quality-checks/.github/workflows/quality-checks.yaml@master
+    with:
+      # Pin merge-base for PRs (see quality-checks README: "Comparing against the correct base commit").
+      diff_base: ${{ github.event.pull_request.base.sha }}
+      markdownlint_run: true
+      prettier_run: true
+      shellcheck_run: false
+      yamllint_run: true
+    secrets: inherit

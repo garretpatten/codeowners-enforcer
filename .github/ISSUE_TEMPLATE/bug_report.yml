@@ -1,0 +1,32 @@
+name: Bug Report
+description: Report unexpected behavior from the Codeowner Verifier action
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Include a link to a failed workflow run if you have one (helps a lot).
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the failure or incorrect CODEOWNERS result.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How can we reproduce it?
+      description: >-
+        Workflow snippet, sample file paths, relevant CODEOWNERS lines (redact secrets and private
+        repo names if needed).
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Additional context
+      description: Logs, runner image (e.g. ubuntu-latest, custom container), action version pin.
+    validations:
+      required: false

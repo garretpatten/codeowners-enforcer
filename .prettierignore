@@ -1,0 +1,8 @@
+# Dependencies and generated bundles (ncc output); never format in CI
+dist/
+node_modules/
+coverage/
+lcov-report/
+
+# Lockfile is machine-generated
+package-lock.json

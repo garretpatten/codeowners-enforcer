@@ -1,0 +1,5 @@
+# https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+default: true
+MD007:
+  indent: 2
+MD013: false

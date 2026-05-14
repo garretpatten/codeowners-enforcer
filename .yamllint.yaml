@@ -1,0 +1,19 @@
+---
+extends: default
+
+# Paths below are relative to this file (repo root). Matches any depth (e.g. nested node_modules).
+ignore: |
+  node_modules/
+  dist/
+  coverage/
+  lcov-report/
+  .git/
+
+rules:
+  line-length:
+    max: 120
+    allow-non-breakable-inline-mappings: true
+  document-start: disable
+  truthy:
+    allowed-values: ['true', 'false', 'on', 'off']
+    check-keys: false
