@@ -8,6 +8,7 @@ jobs:
     # yamllint disable-line rule:line-length
     uses: garretpatten/security-guardrails/.github/workflows/security-guardrails.yaml@master
     with:
-      semgrep_run: true
+      opengrep_run: true
+      supply_chain_run: true
       trufflehog_run: true
     secrets: inherit
