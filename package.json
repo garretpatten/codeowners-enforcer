@@ -1,8 +1,8 @@
 {
-  "name": "codeowner-verifier",
+  "name": "codeowners-enforcer",
   "author": "Garret Patten",
   "version": "1.3",
-  "description": "GitHub Action: verify pull request file changes resolve to a CODEOWNERS owner in .github/CODEOWNERS",
+  "description": "GitHub Action: enforce that pull request file changes resolve to a CODEOWNERS owner in .github/CODEOWNERS",
   "private": true,
   "keywords": [
     "github-actions",
@@ -14,10 +14,10 @@
   "main": "dist/index.js",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/garretpatten/codeowner-verifier.git"
+    "url": "git+https://github.com/garretpatten/codeowners-enforcer.git"
   },
   "license": "MIT",
-  "homepage": "https://github.com/garretpatten/codeowner-verifier#readme",
+  "homepage": "https://github.com/garretpatten/codeowners-enforcer#readme",
   "scripts": {
     "build": "ncc build src/action.ts --minify",
     "typecheck": "tsc --noEmit",

@@ -1,4 +1,4 @@
-name: 'Codeowner Verifier'
+name: 'Codeowners Enforcer'
 description: >-
   Enforce that PR changes have a CODEOWNERS owner (.github/CODEOWNERS; gitignore rules; last match wins).
 author: 'Garret Patten'
