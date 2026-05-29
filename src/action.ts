@@ -37,7 +37,7 @@ export function buildFailureMessage(unowned: string[]): string {
     '\nPlease update `.github/CODEOWNERS` for the paths above. See GitHub’s documentation on code owners:\n' +
     'https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners\n' +
     'To skip paths without requiring an owner, use `.github/.codeownersignore` (see the action README):\n' +
-    'https://github.com/garretpatten/codeowner-verifier#codeownersignore';
+    'https://github.com/garretpatten/codeowners-enforcer#codeownersignore';
   return message;
 }
 

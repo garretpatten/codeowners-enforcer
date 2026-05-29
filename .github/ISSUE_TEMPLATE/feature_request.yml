@@ -1,5 +1,5 @@
 name: Feature Request
-description: Suggest an improvement or new capability for Codeowner Verifier
+description: Suggest an improvement or new capability for Codeowners Enforcer
 labels:
   - enhancement
 body:

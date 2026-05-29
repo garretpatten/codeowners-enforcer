@@ -1,23 +1,23 @@
 <!-- markdownlint-disable-file MD033 MD041 -->
 <div align="center">
 
-<img src="assets/logo.svg" width="88" height="88" alt="Codeowner Verifier logo"/>
+<img src="assets/logo.svg" width="88" height="88" alt="Codeowners Enforcer logo"/>
 
-# Codeowner Verifier
+# Codeowners Enforcer
 
-**Verify that every changed file has an effective owner before merge.**
+**Enforce that every changed file has an effective owner before merge.**
 
 <sub>GitHub Action · <code>.github/CODEOWNERS</code> · pull requests &amp; pushes</sub>
 
 <br/>
 
-[![GitHub Actions](https://img.shields.io/badge/GitHub-Action-2088FF?style=flat-square&logo=githubactions&logoColor=white)](https://github.com/garretpatten/codeowner-verifier)
-[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Codeowner_Verifier-6f42c1?style=flat-square&logo=github)](https://github.com/marketplace/actions/codeowner-verifier)
+[![GitHub Actions](https://img.shields.io/badge/GitHub-Action-2088FF?style=flat-square&logo=githubactions&logoColor=white)](https://github.com/garretpatten/codeowners-enforcer)
+[![GitHub Marketplace](https://img.shields.io/badge/Marketplace-Codeowners_Enforcer-6f42c1?style=flat-square&logo=github)](https://github.com/marketplace/actions/codeowners-enforcer)
 [![code style: prettier](https://img.shields.io/badge/code_style-prettier-ff69b4.svg?style=flat-square)](https://github.com/prettier/prettier)
-[![Issues](https://img.shields.io/github/issues/garretpatten/codeowner-verifier?style=flat-square)](https://github.com/garretpatten/codeowner-verifier/issues)
-[![License MIT](https://img.shields.io/github/license/garretpatten/codeowner-verifier?style=flat-square)](https://github.com/garretpatten/codeowner-verifier/blob/main/LICENSE)
-[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/garretpatten/codeowner-verifier/badge)](https://api.securityscorecards.dev/viewer/?uri=github.com/garretpatten/codeowner-verifier)
-[![Release](https://img.shields.io/github/v/release/garretpatten/codeowner-verifier?style=flat-square)](https://github.com/garretpatten/codeowner-verifier/releases)
+[![Issues](https://img.shields.io/github/issues/garretpatten/codeowners-enforcer?style=flat-square)](https://github.com/garretpatten/codeowners-enforcer/issues)
+[![License MIT](https://img.shields.io/github/license/garretpatten/codeowners-enforcer?style=flat-square)](https://github.com/garretpatten/codeowners-enforcer/blob/main/LICENSE)
+[![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/garretpatten/codeowners-enforcer/badge)](https://api.securityscorecards.dev/viewer/?uri=github.com/garretpatten/codeowners-enforcer)
+[![Release](https://img.shields.io/github/v/release/garretpatten/codeowners-enforcer?style=flat-square)](https://github.com/garretpatten/codeowners-enforcer/releases)
 
 </div>
 
@@ -29,11 +29,11 @@ The runtime entrypoint is the bundled `dist/index.js`, built with [`ncc`](https:
 
 ## Why this action
 
-GitHub can require reviews from code owners, but that is separate from proving—inside your own workflow—that every path in a diff resolves to an owner line under the same rules GitHub documents. This action runs that check using only the file lists you pass in, so the **verifier step** does not call the GitHub API and does not need `GITHUB_TOKEN` in its `with:` mapping—handy for **containers and minimal runners** once another step has produced the path lists.
+GitHub can require reviews from code owners, but that is separate from proving—inside your own workflow—that every path in a diff resolves to an owner line under the same rules GitHub documents. This action runs that check using only the file lists you pass in, so the **enforcer step** does not call the GitHub API and does not need `GITHUB_TOKEN` in its `with:` mapping—handy for **containers and minimal runners** once another step has produced the path lists.
 
 ## GitHub Marketplace
 
-**[Codeowner Verifier on the GitHub Marketplace](https://github.com/marketplace/actions/codeowner-verifier)** — the listing uses this repository’s root **README** and **`action.yml`**. To publish or update a public action, follow [Publishing actions in the GitHub Marketplace](https://docs.github.com/en/actions/creating-actions/publishing-actions-in-github-marketplace) and keep [release tags](./CONTRIBUTING.md#releases-and-the-github-marketplace) in sync with the `dist/` bundle when `src/` changes.
+**[Codeowners Enforcer on the GitHub Marketplace](https://github.com/marketplace/actions/codeowners-enforcer)** — the listing uses this repository’s root **README** and **`action.yml`**. To publish or update a public action, follow [Publishing actions in the GitHub Marketplace](https://docs.github.com/en/actions/creating-actions/publishing-actions-in-github-marketplace) and keep [release tags](./CONTRIBUTING.md#releases-and-the-github-marketplace) in sync with the `dist/` bundle when `src/` changes.
 
 ## Table of Contents
 
@@ -57,7 +57,7 @@ GitHub can require reviews from code owners, but that is separate from proving�
 
 ## Usage
 
-This action is intended for public and private repositories. Add a workflow under `.github/workflows/`. This repository ships a full PR workflow in [`.github/workflows/codeowner-verifier.yaml`](.github/workflows/codeowner-verifier.yaml) (Alpine container, diff-based file lists, PR comments on failure, and safe handling of oversized inputs).
+This action is intended for public and private repositories. Add a workflow under `.github/workflows/`. This repository ships a full PR workflow in [`.github/workflows/codeowners-enforcer.yaml`](.github/workflows/codeowners-enforcer.yaml) (Alpine container, diff-based file lists, PR comments on failure, and safe handling of oversized inputs).
 
 ### Pinning versions
 
@@ -78,7 +78,7 @@ jobs:
         run: |
           echo "changed=$(git diff --name-only HEAD^ HEAD | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
           echo "deleted=$(git diff --name-only --diff-filter=D HEAD^ HEAD | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
-      - uses: garretpatten/codeowner-verifier@v2
+      - uses: garretpatten/codeowners-enforcer@v2
         with:
           changedFiles: ${{ steps.lists.outputs.changed }}
           deletedFiles: ${{ steps.lists.outputs.deleted }}
