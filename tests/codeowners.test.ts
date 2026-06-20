@@ -126,6 +126,10 @@ file3.js @team3
   });
 
   describe('handleWhiteSpaceInFilepaths', () => {
+    it('returns an empty list for an empty input string', () => {
+      expect(handleWhiteSpaceInFilepaths('')).toEqual([]);
+    });
+
     it('splits a simple space-delimited list', () => {
       expect(handleWhiteSpaceInFilepaths('a.js b.js')).toEqual([
         'a.js',
