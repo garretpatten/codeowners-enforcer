@@ -181,6 +181,10 @@ export function listChangedFilesWithoutOwnership(
 export function handleWhiteSpaceInFilepaths(
   filesSpaceDelimitedList: string,
 ): string[] {
+  if (filesSpaceDelimitedList === '') {
+    return [];
+  }
+
   const filepaths: string[] = [];
   let filepath = '';
   let remaining = filesSpaceDelimitedList;
