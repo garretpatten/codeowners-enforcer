@@ -49,3 +49,9 @@ If **`lint:yaml`** fails because `yamllint` is missing, install it for your envi
 4. If `src/` changed: `npm run build` and include `dist/` updates if required by contributing guidelines
 
 Resolve every failure before handing off or summarizing the task as done.
+
+## GitHub Actions
+
+Whenever a GitHub workflow is added, all GitHub Action pins in that workflow
+should be updated to point to the full-length commit SHA of the most recent
+release.
