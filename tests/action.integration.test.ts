@@ -1,9 +1,11 @@
-jest.mock('fs', () => {
-  const actual = jest.requireActual<typeof import('fs')>('fs');
+import { Mock, MockedFunction } from 'vitest';
+
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('fs')>();
   return {
     ...actual,
-    readFileSync: jest.fn(),
-    existsSync: jest.fn(() => false),
+    readFileSync: vi.fn(),
+    existsSync: vi.fn(() => false),
   };
 });
 
@@ -12,12 +14,10 @@ import * as fs from 'fs';
 import { verifyCodeowners } from '../src/action';
 import { clearPatternMatcherCache } from '../src/codeowners';
 
-const readFileSyncMock = fs.readFileSync as jest.MockedFunction<
+const readFileSyncMock = fs.readFileSync as MockedFunction<
   typeof fs.readFileSync
 >;
-const existsSyncMock = fs.existsSync as jest.MockedFunction<
-  typeof fs.existsSync
->;
+const existsSyncMock = fs.existsSync as MockedFunction<typeof fs.existsSync>;
 
 describe('verifyCodeowners (integration)', () => {
   afterEach(() => {
@@ -26,7 +26,7 @@ describe('verifyCodeowners (integration)', () => {
 
   beforeEach(() => {
     existsSyncMock.mockReturnValue(false);
-    jest.spyOn(core, 'getInput').mockImplementation((name: string) => {
+    vi.spyOn(core, 'getInput').mockImplementation((name: string) => {
       if (name === 'changedFiles') {
         return 'file1.js file2.js file3.js file4.js file5.js';
       }
@@ -36,11 +36,11 @@ describe('verifyCodeowners (integration)', () => {
       return '';
     });
 
-    jest.spyOn(core, 'setFailed').mockImplementation(() => {});
-    jest.spyOn(core, 'setOutput').mockImplementation(() => {});
-    jest.spyOn(core, 'startGroup').mockImplementation(() => {});
-    jest.spyOn(core, 'endGroup').mockImplementation(() => {});
-    jest.spyOn(core, 'info').mockImplementation(() => {});
+    vi.spyOn(core, 'setFailed').mockImplementation(() => {});
+    vi.spyOn(core, 'setOutput').mockImplementation(() => {});
+    vi.spyOn(core, 'startGroup').mockImplementation(() => {});
+    vi.spyOn(core, 'endGroup').mockImplementation(() => {});
+    vi.spyOn(core, 'info').mockImplementation(() => {});
   });
 
   it('passes when there is a default owner in CODEOWNERS', () => {
@@ -145,8 +145,8 @@ describe('verifyCodeowners (integration)', () => {
     );
     expect(core.info).toHaveBeenCalledWith('file5.js');
     expect(core.setOutput).toHaveBeenCalledWith('unownedFiles', 'file5.js');
-    const outputOrder = (core.setOutput as jest.Mock).mock.calls.map(
-      (c: [string, unknown]) => c[0],
+    const outputOrder = (core.setOutput as Mock).mock.calls.map(
+      (c) => c[0] as string,
     );
     expect(outputOrder.indexOf('unownedFiles')).toBeLessThan(
       outputOrder.indexOf('errorMessage'),
@@ -174,7 +174,7 @@ describe('verifyCodeowners (integration)', () => {
   });
 
   it('matches patterns without a leading slash the same way GitHub does', () => {
-    jest.spyOn(core, 'getInput').mockImplementation((name: string) => {
+    vi.spyOn(core, 'getInput').mockImplementation((name: string) => {
       if (name === 'changedFiles') {
         return 'packages/foo/docs/readme.md';
       }
@@ -236,7 +236,7 @@ describe('verifyCodeowners (integration)', () => {
   });
 
   it('fails when a global owner is overridden by a later unowned path', () => {
-    jest.spyOn(core, 'getInput').mockImplementation((name: string) => {
+    vi.spyOn(core, 'getInput').mockImplementation((name: string) => {
       if (name === 'changedFiles') {
         return 'secret.cfg';
       }
@@ -265,7 +265,7 @@ describe('verifyCodeowners (integration)', () => {
 
   it('skips verification when inputs exceed the combined size limit without failing', () => {
     const huge = 'x'.repeat(60_000);
-    jest.spyOn(core, 'getInput').mockImplementation((name: string) => {
+    vi.spyOn(core, 'getInput').mockImplementation((name: string) => {
       if (name === 'changedFiles') {
         return huge;
       }
@@ -274,7 +274,7 @@ describe('verifyCodeowners (integration)', () => {
       }
       return '';
     });
-    const warnSpy = jest.spyOn(core, 'warning').mockImplementation(() => {});
+    const warnSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
 
     verifyCodeowners();
 
