@@ -44,6 +44,7 @@
   "overrides": {
     "smol-toml": "^1.9.0",
     "katex": "^0.18.2",
+    "markdown-it": "^15.0.3",
     "undici": "^6.29.1",
     "js-yaml": {
       "argparse": "^2.0.0"
