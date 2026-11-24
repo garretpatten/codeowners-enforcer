@@ -11,15 +11,7 @@ jobs:
     name: 'Linters'
     # Markdown/YAML ignores: repo-root `.markdownlint-cli2.yaml` and `.yamllint.yaml` (`ignore:`).
     # yamllint disable-line rule:line-length
-    uses: garretpatten/quality-checks/.github/workflows/quality-checks.yaml@fe4c2bf7655d5315e264422532786d1dd970248e # master
+    uses: garretpatten/quality-checks/.github/workflows/quality-checks.yaml@78294799f20fc78703fe62488a7d11a6903214b5  # v2
     with:
       # Pin merge-base for PRs (see quality-checks README: "Comparing against the correct base commit").
       diff_base: ${{ github.event.pull_request.base.sha }}
-      markdownlint_run: true
-      prettier_run: true
-      shellcheck_run: false
-      yamllint_run: true
-    # Pass only the secret the reusable workflow uses (secrets.token);
-    # `secrets: inherit` violates least privilege.
-    secrets:
-      token: ${{ secrets.GITHUB_TOKEN }}
