@@ -1,3 +1,4 @@
+import * as core from '@actions/core';
 import {
   MAX_COMBINED_INPUT_BYTES,
   shouldSkipForInputSize,
@@ -5,10 +6,10 @@ import {
 import {
   clearPatternMatcherCache,
   fileHasOwner,
-  handleWhiteSpaceInFilepaths,
   listChangedFilesWithoutOwnership,
   parseCodeownersFile,
   parseCodeownersRuleLine,
+  parseFileListInput,
   parseIgnoreFileContent,
   patternMatchesPath,
   splitLineWithEscapedSpacesInPattern,
@@ -125,22 +126,113 @@ file3.js @team3
     });
   });
 
-  describe('handleWhiteSpaceInFilepaths', () => {
+  describe('parseCodeownersFile (invalid lines)', () => {
+    it('ignores owners-only lines (missing path pattern) with a warning naming the line', () => {
+      const warnSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+      const rules = parseCodeownersFile('@global-owner\nsrc/ @team\n');
+      expect(rules).toEqual([{ pattern: 'src/', owners: ['@team'] }]);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('@global-owner'),
+      );
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe('parseFileListInput', () => {
     it('returns an empty list for an empty input string', () => {
-      expect(handleWhiteSpaceInFilepaths('')).toEqual([]);
+      expect(parseFileListInput('')).toEqual([]);
     });
 
-    it('splits a simple space-delimited list', () => {
-      expect(handleWhiteSpaceInFilepaths('a.js b.js')).toEqual([
-        'a.js',
-        'b.js',
+    it('splits a simple space-delimited (legacy) list', () => {
+      expect(parseFileListInput('a.js b.js')).toEqual(['a.js', 'b.js']);
+    });
+
+    it('handles dotfiles without extensions in legacy lists', () => {
+      const warnSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+      expect(parseFileListInput('.github/CODEOWNERS .gitignore')).toEqual([
+        '.github/CODEOWNERS',
+        '.gitignore',
+      ]);
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it('collapses repeated whitespace without smuggling leading spaces into paths', () => {
+      expect(parseFileListInput('a.js  b.js')).toEqual(['a.js', 'b.js']);
+    });
+
+    it('splits newline-delimited lists (canonical format)', () => {
+      expect(parseFileListInput('a.ts\nb.ts\nc.ts')).toEqual([
+        'a.ts',
+        'b.ts',
+        'c.ts',
       ]);
     });
 
-    it('handles dotfiles without extensions', () => {
+    it('round-trips newline-delimited paths containing spaces', () => {
+      expect(parseFileListInput('docs/read me.md\nsrc/a.ts')).toEqual([
+        'docs/read me.md',
+        'src/a.ts',
+      ]);
+    });
+
+    it('tolerates CRLF line endings in newline-delimited lists', () => {
+      expect(parseFileListInput('a.ts\r\nb.ts\r\n')).toEqual(['a.ts', 'b.ts']);
+    });
+
+    it('skips empty lines in newline-delimited lists', () => {
+      expect(parseFileListInput('a.ts\n\nb.ts\n')).toEqual(['a.ts', 'b.ts']);
+    });
+
+    it('warns and splits separately when a legacy list has a non-final extension-less path (merged-path corruption class)', () => {
+      const warnSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+      expect(parseFileListInput('Dockerfile src/index.ts')).toEqual([
+        'Dockerfile',
+        'src/index.ts',
+      ]);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('newline-delimited'),
+      );
+      warnSpy.mockRestore();
+    });
+
+    it('warns once and returns every path for multiple extension-less tokens', () => {
+      const warnSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+      expect(parseFileListInput('Makefile Dockerfile docs/readme.md')).toEqual([
+        'Makefile',
+        'Dockerfile',
+        'docs/readme.md',
+      ]);
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      warnSpy.mockRestore();
+    });
+
+    it('does not warn when the only extension-less path is the final token', () => {
+      const warnSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+      expect(parseFileListInput('src/a.js Dockerfile')).toEqual([
+        'src/a.js',
+        'Dockerfile',
+      ]);
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it('does not warn for a single extension-less path', () => {
+      const warnSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+      expect(parseFileListInput('Dockerfile')).toEqual(['Dockerfile']);
+      expect(warnSpy).not.toHaveBeenCalled();
+      warnSpy.mockRestore();
+    });
+
+    it('never merges paths into one entry for extension-less names other than LICENSE', () => {
       expect(
-        handleWhiteSpaceInFilepaths('.github/CODEOWNERS .gitignore'),
-      ).toEqual(['.github/CODEOWNERS', '.gitignore']);
+        parseFileListInput('Makefile Dockerfile docs/readme.md').length,
+      ).toBe(3);
+      expect(parseFileListInput('LICENSE  foo.js')).toEqual([
+        'LICENSE',
+        'foo.js',
+      ]);
     });
   });
 });

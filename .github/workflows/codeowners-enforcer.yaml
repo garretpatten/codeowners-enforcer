@@ -65,26 +65,34 @@ jobs:
 
       - name: Compute changed and deleted paths
         id: filelists
+        # The action's canonical input format is newline-delimited: newlines cannot occur in
+        # git paths, so these multi-line outputs round-trip exactly, including paths with spaces.
         run: |
           set -e
           git fetch origin "$GITHUB_BASE_REF" --depth=1
-          git_diff="$(git diff --name-only \
-            "origin/$GITHUB_BASE_REF" "$GITHUB_SHA")"
-          git_diff_fixed="$(echo "$git_diff" | tr '\n' ' ')"
-          git_diff_deleted="$(git diff --name-only --diff-filter=D \
-            "origin/$GITHUB_BASE_REF" "$GITHUB_SHA")"
-          git_diff_deleted_fixed="$(echo "$git_diff_deleted" | tr '\n' ' ')"
-          clen=$(printf '%s' "$git_diff_fixed" | wc -c | tr -d ' ')
-          dlen=$(printf '%s' "$git_diff_deleted_fixed" | wc -c | tr -d ' ')
+          git diff --name-only \
+            "origin/$GITHUB_BASE_REF" "$GITHUB_SHA" > /tmp/changed.txt
+          git diff --name-only --diff-filter=D \
+            "origin/$GITHUB_BASE_REF" "$GITHUB_SHA" > /tmp/deleted.txt
+          clen=$(wc -c < /tmp/changed.txt | tr -d ' ')
+          dlen=$(wc -c < /tmp/deleted.txt | tr -d ' ')
           max=100000
           if [ "$clen" -gt "$max" ] || [ "$dlen" -gt "$max" ]; then
-            echo "skip_verify=true" >> "$GITHUB_OUTPUT"
-            echo "git_diff=" >> "$GITHUB_OUTPUT"
-            echo "git_diff_deleted=" >> "$GITHUB_OUTPUT"
+            {
+              echo "skip_verify=true"
+              echo "git_diff="
+              echo "git_diff_deleted="
+            } >> "$GITHUB_OUTPUT"
           else
-            echo "skip_verify=false" >> "$GITHUB_OUTPUT"
-            echo "git_diff=$git_diff_fixed" >> "$GITHUB_OUTPUT"
-            echo "git_diff_deleted=$git_diff_deleted_fixed" >> "$GITHUB_OUTPUT"
+            {
+              echo "skip_verify=false"
+              echo "git_diff<<CODEOWNERS_DIFF_EOF"
+              cat /tmp/changed.txt
+              echo "CODEOWNERS_DIFF_EOF"
+              echo "git_diff_deleted<<CODEOWNERS_DELETED_EOF"
+              cat /tmp/deleted.txt
+              echo "CODEOWNERS_DELETED_EOF"
+            } >> "$GITHUB_OUTPUT"
           fi
 
       - name: Enforce CODEOWNERS
@@ -115,7 +123,8 @@ jobs:
               const bullets = String(pathsRaw)
                 .split(/\r?\n/)
                 .filter((line) => line.length > 0)
-                .map((p) => `- ${p}`)
+                // Wrap each path in backticks so attacker-chosen filenames render inert in markdown.
+                .map((p) => '- `' + p + '`')
                 .join('\n');
               detail =
                 '**Files without an effective owner:**\n\n' +
