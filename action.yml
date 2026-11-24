@@ -1,6 +1,7 @@
 name: 'Codeowners Enforcer'
 description: >-
-  Enforce that PR changes have a CODEOWNERS owner (.github/CODEOWNERS; gitignore rules; last match wins).
+  Enforce that PR changes have a CODEOWNERS owner (.github/CODEOWNERS, CODEOWNERS, or docs/CODEOWNERS;
+  gitignore rules; last match wins).
 author: 'Garret Patten'
 branding:
   icon: git-pull-request
@@ -9,23 +10,25 @@ branding:
 inputs:
   changedFiles:
     description: >-
-      Space-delimited repository-relative paths of added or modified files (for example from git diff).
+      Newline-delimited repository-relative paths of added or modified files (for example from git diff).
+      Space-delimited lists are accepted as a legacy fallback, but cannot represent paths containing spaces.
     required: true
 
   deletedFiles:
     description: >-
-      Space-delimited repository-relative paths of deleted or moved files (for example from git diff --diff-filter=D).
-    required: true
+      Newline-delimited repository-relative paths of deleted or moved files (for example from git diff --diff-filter=D).
+      Space-delimited lists are accepted as a legacy fallback. Paths listed here are not reported as missing ownership.
+    required: false
 
 outputs:
   unownedFiles:
     description: >-
       When the check fails: newline-separated repository-relative paths with no effective owner.
-      Empty or unset when the check passes. Prefer this output for workflow comments (stable formatting).
+      Always set; empty string when the check passes. Prefer this output for workflow comments (stable formatting).
   errorMessage:
     description: >-
-      Set when the check fails: details listing files without an effective code owner.
-      Empty or unset when the check passes.
+      When the check fails: details listing files without an effective code owner.
+      Always set; empty string when the check passes.
   skipped:
     description: >-
       Set to the string `true` when verification was skipped because the inputs exceeded the size limit.
@@ -33,5 +36,5 @@ outputs:
     description: Human-readable explanation when `skipped` is set.
 
 runs:
-  using: node20
+  using: node24
   main: dist/index.js

@@ -23,7 +23,7 @@
 
 ---
 
-A GitHub Action that checks whether every **changed** file in a pull request or push has an effective owner according to `.github/CODEOWNERS`. Matching follows [GitHub’s CODEOWNERS rules](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) (gitignore-style patterns, root-anchored paths with a leading `/`, and **last matching pattern wins**—including lines that list a path with no owners).
+A GitHub Action that checks whether every **changed** file in a pull request or push has an effective owner according to CODEOWNERS. The CODEOWNERS file is discovered using GitHub’s precedence: `.github/CODEOWNERS`, root `CODEOWNERS`, then `docs/CODEOWNERS`. Matching follows [GitHub’s CODEOWNERS rules](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners) (gitignore-style patterns, root-anchored paths with a leading `/`, and **last matching pattern wins**—including lines that list a path with no owners).
 
 The runtime entrypoint is the bundled `dist/index.js`, built with [`ncc`](https://github.com/vercel/ncc) from TypeScript sources under `src/`.
 
@@ -75,9 +75,17 @@ jobs:
           fetch-depth: 0
       - name: Lists for this action
         id: lists
+        # Newline-delimited multi-line outputs: newlines cannot occur in git paths, so the
+        # lists round-trip exactly, including paths that contain spaces.
         run: |
-          echo "changed=$(git diff --name-only HEAD^ HEAD | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
-          echo "deleted=$(git diff --name-only --diff-filter=D HEAD^ HEAD | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+          {
+            echo "changed<<CODEOWNERS_DIFF_EOF"
+            git diff --name-only HEAD^ HEAD
+            echo "CODEOWNERS_DIFF_EOF"
+            echo "deleted<<CODEOWNERS_DELETED_EOF"
+            git diff --name-only --diff-filter=D HEAD^ HEAD
+            echo "CODEOWNERS_DELETED_EOF"
+          } >> "$GITHUB_OUTPUT"
       - uses: garretpatten/codeowners-enforcer@v2
         with:
           changedFiles: ${{ steps.lists.outputs.changed }}
@@ -96,24 +104,26 @@ The example workflow measures list size first: if it would exceed the cap, it **
 
 #### changedFiles
 
-Required. A **space-delimited** list of repository-relative paths for added or modified files. The example workflow builds this list with `git diff`.
+Required. A **newline-delimited** list of repository-relative paths for added or modified files (one path per line). The example workflow builds this list with `git diff` and emits it as a multi-line step output. Newlines cannot occur in git paths, so this format is lossless, including for paths that contain spaces.
+
+**Legacy format:** space-delimited lists (no newline in the value) are still accepted and split on whitespace, but a space-delimited list cannot represent a path containing a space. When such a list contains an extension-less path followed by another entry, the action logs a warning asking you to switch to newline-delimited input.
 
 #### deletedFiles
 
-Required. A **space-delimited** list of repository-relative paths for deleted or moved files (for example from `git diff --diff-filter=D`). Paths listed here are not reported as missing ownership.
+Optional. A **newline-delimited** list of repository-relative paths for deleted or moved files (for example from `git diff --diff-filter=D`). Paths listed here are not reported as missing ownership. Legacy space-delimited lists are accepted as for `changedFiles`.
 
 This action does **not** call the GitHub API and does not require `secrets.GITHUB_TOKEN` or any other token in `with:`—only the path lists above.
 
 ## Action outputs
 
-| Output         | When it is set                                                           | Meaning                                                                                                                    |
-| -------------- | ------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
-| `unownedFiles` | Same as `errorMessage`                                                   | Newline-separated paths with no effective owner—stable for workflow comments and scripting. Empty when the check passes.   |
-| `errorMessage` | Step **failed** because at least one changed file has no effective owner | Human-readable list of paths to fix in `.github/CODEOWNERS` (or `.github/.codeownersignore`). Empty when the check passes. |
-| `skipped`      | Inputs exceeded the [size limit](#limits)                                | Set to the string `true`; the step succeeds without verifying.                                                             |
-| `skipReason`   | Same as `skipped`                                                        | Explains why verification was skipped.                                                                                     |
+| Output         | When it is set                                                           | Meaning                                                                                                                                     |
+| -------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `unownedFiles` | Same as `errorMessage`                                                   | Newline-separated paths with no effective owner—stable for workflow comments and scripting. Always set; empty string when the check passes. |
+| `errorMessage` | Step **failed** because at least one changed file has no effective owner | Human-readable list of paths to fix in CODEOWNERS (or `.github/.codeownersignore`). Always set; empty string when the check passes.         |
+| `skipped`      | Inputs exceeded the [size limit](#limits)                                | Set to the string `true`; the step succeeds without verifying.                                                                              |
+| `skipReason`   | Same as `skipped`                                                        | Explains why verification was skipped.                                                                                                      |
 
-Downstream steps can branch on `steps.<id>.outputs.skipped` or inspect `unownedFiles` / `errorMessage` when using `continue-on-error: true` (as in the bundled example workflow).
+Downstream steps can branch on `steps.<id>.outputs.skipped` or test `steps.<id>.outputs.unownedFiles == ''` / inspect `errorMessage` when using `continue-on-error: true` (as in the bundled example workflow).
 
 ## Supporting files
 

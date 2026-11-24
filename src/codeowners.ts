@@ -1,3 +1,4 @@
+import * as core from '@actions/core';
 import ignore from 'ignore';
 
 /**
@@ -61,6 +62,14 @@ export function parseCodeownersFile(content: string): CodeownerRule[] {
       continue;
     }
     const rule = parseCodeownersRuleLine(line);
+    // GitHub ignores lines that begin with an owner (missing path pattern); this action
+    // must not turn them into rules whose pattern is the owner handle.
+    if (rule.pattern.startsWith('@')) {
+      core.warning(
+        `Ignoring invalid CODEOWNERS line (missing path pattern before owners): ${line}`,
+      );
+      continue;
+    }
     if (rule.pattern.length > 0) {
       rules.push(rule);
     }
@@ -175,51 +184,45 @@ export function listChangedFilesWithoutOwnership(
 }
 
 /**
- * Splits a space-delimited list of repo-relative paths into individual paths. Some paths may contain spaces;
- * this uses file-extension boundaries to recover those entries (same heuristic as the original action).
+ * Splits a workflow file-list input (`changedFiles` / `deletedFiles`) into individual
+ * repository-relative paths.
+ *
+ * Canonical format: **newline-delimited** paths (one per line; a trailing `\r` from CRLF
+ * input is tolerated). Newlines cannot occur in git paths, so this format is lossless,
+ * including for paths that contain spaces.
+ *
+ * Legacy format (input contains no newline): **space-delimited** paths, split on
+ * whitespace. Spaces inside paths cannot be represented in this format; when a
+ * whitespace-separated token contains no `.` and is not the final token — exactly the
+ * shape the historical extension-heuristic tokenizer merged into a single corrupt path —
+ * a warning is emitted because the list may be misparsed.
  */
-export function handleWhiteSpaceInFilepaths(
-  filesSpaceDelimitedList: string,
-): string[] {
-  if (filesSpaceDelimitedList === '') {
+export function parseFileListInput(filesList: string): string[] {
+  if (filesList.includes('\n')) {
+    return filesList
+      .split('\n')
+      .map((line) => (line.endsWith('\r') ? line.slice(0, -1) : line))
+      .filter((line) => line.length > 0);
+  }
+  return parseLegacySpaceDelimitedFileList(filesList);
+}
+
+/**
+ * Legacy fallback for space-delimited file lists, which cannot represent paths
+ * containing spaces. See {@link parseFileListInput} for the canonical format.
+ */
+function parseLegacySpaceDelimitedFileList(list: string): string[] {
+  if (list === '') {
     return [];
   }
-
-  const filepaths: string[] = [];
-  let filepath = '';
-  let remaining = filesSpaceDelimitedList;
-
-  while (true) {
-    if (remaining.indexOf(' ') === -1) {
-      filepath += remaining;
-      remaining = '';
-    } else if (remaining.substring(0, 1) === '.') {
-      const indexOfSpace = remaining.indexOf(' ');
-      filepath += remaining.substring(0, indexOfSpace);
-      remaining = remaining.substring(indexOfSpace + 1);
-    } else if (remaining.substring(0, 7) === 'LICENSE') {
-      filepath += remaining.substring(0, 7);
-      remaining = remaining.substring(8);
-    } else {
-      const indexOfExtension = remaining.indexOf('.');
-      filepath += remaining.substring(0, indexOfExtension);
-      remaining = remaining.substring(indexOfExtension);
-
-      if (remaining.indexOf(' ') !== -1) {
-        const indexOfSpace = remaining.indexOf(' ');
-        filepath += remaining.substring(0, indexOfSpace);
-        remaining = remaining.substring(indexOfSpace + 1);
-      } else {
-        filepath += remaining;
-        remaining = '';
-      }
-    }
-
-    filepaths.push(filepath);
-    filepath = '';
-
-    if (remaining === '') {
-      return filepaths;
-    }
+  const paths = list.split(/\s+/).filter((p) => p.length > 0);
+  const hasAmbiguousToken =
+    paths.length > 1 && paths.slice(0, -1).some((p) => !p.includes('.'));
+  if (hasAmbiguousToken) {
+    core.warning(
+      'The file list looks space-delimited but contains extension-less paths; it may be ' +
+        'misparsed. Prefer newline-delimited input for changedFiles/deletedFiles.',
+    );
   }
+  return paths;
 }

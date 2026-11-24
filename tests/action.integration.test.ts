@@ -25,7 +25,9 @@ describe('verifyCodeowners (integration)', () => {
   });
 
   beforeEach(() => {
-    existsSyncMock.mockReturnValue(false);
+    existsSyncMock.mockImplementation(
+      (p) => String(p) === '.github/CODEOWNERS',
+    );
     vi.spyOn(core, 'getInput').mockImplementation((name: string) => {
       if (name === 'changedFiles') {
         return 'file1.js file2.js file3.js file4.js file5.js';
@@ -54,7 +56,8 @@ describe('verifyCodeowners (integration)', () => {
     verifyCodeowners();
 
     expect(core.setFailed).not.toHaveBeenCalled();
-    expect(core.setOutput).not.toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith('unownedFiles', '');
+    expect(core.setOutput).toHaveBeenCalledWith('errorMessage', '');
   });
 
   it('passes when every changed file matches an owning pattern', () => {
@@ -68,7 +71,8 @@ describe('verifyCodeowners (integration)', () => {
     verifyCodeowners();
 
     expect(core.setFailed).not.toHaveBeenCalled();
-    expect(core.setOutput).not.toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith('unownedFiles', '');
+    expect(core.setOutput).toHaveBeenCalledWith('errorMessage', '');
   });
 
   it('passes with inline comments on owner lines', () => {
@@ -82,7 +86,8 @@ describe('verifyCodeowners (integration)', () => {
     verifyCodeowners();
 
     expect(core.setFailed).not.toHaveBeenCalled();
-    expect(core.setOutput).not.toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith('unownedFiles', '');
+    expect(core.setOutput).toHaveBeenCalledWith('errorMessage', '');
   });
 
   it('does not treat commented-out rules as active', () => {
@@ -197,7 +202,10 @@ describe('verifyCodeowners (integration)', () => {
   });
 
   it('reads legacy root .codeownersignore when the .github path does not exist', () => {
-    existsSyncMock.mockImplementation((p) => String(p) === '.codeownersignore');
+    existsSyncMock.mockImplementation(
+      (p) =>
+        String(p) === '.github/CODEOWNERS' || String(p) === '.codeownersignore',
+    );
 
     readFileSyncMock.mockImplementation((filepath) => {
       if (filepath === '.github/CODEOWNERS') {
@@ -216,7 +224,9 @@ describe('verifyCodeowners (integration)', () => {
 
   it('loads .github/.codeownersignore and omits ignored paths from the failure list', () => {
     existsSyncMock.mockImplementation(
-      (p) => String(p) === '.github/.codeownersignore',
+      (p) =>
+        String(p) === '.github/CODEOWNERS' ||
+        String(p) === '.github/.codeownersignore',
     );
 
     readFileSyncMock.mockImplementation((filepath) => {
@@ -232,7 +242,8 @@ describe('verifyCodeowners (integration)', () => {
     verifyCodeowners();
 
     expect(core.setFailed).not.toHaveBeenCalled();
-    expect(core.setOutput).not.toHaveBeenCalled();
+    expect(core.setOutput).toHaveBeenCalledWith('unownedFiles', '');
+    expect(core.setOutput).toHaveBeenCalledWith('errorMessage', '');
   });
 
   it('fails when a global owner is overridden by a later unowned path', () => {
@@ -261,6 +272,122 @@ describe('verifyCodeowners (integration)', () => {
       'errorMessage',
       expect.stringContaining('secret.cfg'),
     );
+  });
+
+  it('honors a root CODEOWNERS file when .github/CODEOWNERS does not exist', () => {
+    existsSyncMock.mockImplementation((p) => String(p) === 'CODEOWNERS');
+
+    readFileSyncMock.mockImplementation((filepath) => {
+      if (filepath === 'CODEOWNERS') {
+        return '* @team\n';
+      }
+      return '';
+    });
+
+    verifyCodeowners();
+
+    expect(core.setFailed).not.toHaveBeenCalled();
+  });
+
+  it('honors docs/CODEOWNERS when no other location exists', () => {
+    existsSyncMock.mockImplementation((p) => String(p) === 'docs/CODEOWNERS');
+
+    readFileSyncMock.mockImplementation((filepath) => {
+      if (filepath === 'docs/CODEOWNERS') {
+        return '* @team\n';
+      }
+      return '';
+    });
+
+    verifyCodeowners();
+
+    expect(core.setFailed).not.toHaveBeenCalled();
+  });
+
+  it('prefers .github/CODEOWNERS over root and docs locations (GitHub precedence)', () => {
+    existsSyncMock.mockImplementation(
+      (p) =>
+        String(p) === '.github/CODEOWNERS' ||
+        String(p) === 'CODEOWNERS' ||
+        String(p) === 'docs/CODEOWNERS',
+    );
+
+    readFileSyncMock.mockImplementation((filepath) => {
+      if (filepath === '.github/CODEOWNERS') {
+        return 'file5.js @team5\n';
+      }
+      if (filepath === 'CODEOWNERS') {
+        return '* @wrong\n';
+      }
+      if (filepath === 'docs/CODEOWNERS') {
+        return '* @wrong\n';
+      }
+      return '';
+    });
+
+    verifyCodeowners();
+
+    // Only .github/CODEOWNERS was read: file5.js owned, file1-4.js unowned.
+    expect(core.setOutput).toHaveBeenCalledWith(
+      'unownedFiles',
+      'file1.js\nfile2.js\nfile3.js\nfile4.js',
+    );
+    expect(core.setFailed).toHaveBeenCalled();
+  });
+
+  it('fails cleanly (no throw) when no CODEOWNERS file exists in any location', () => {
+    existsSyncMock.mockReturnValue(false);
+
+    verifyCodeowners();
+
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('No CODEOWNERS file found'),
+    );
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('docs/CODEOWNERS'),
+    );
+  });
+
+  it('fails cleanly when the CODEOWNERS file cannot be read', () => {
+    existsSyncMock.mockImplementation(
+      (p) => String(p) === '.github/CODEOWNERS',
+    );
+    readFileSyncMock.mockImplementation(() => {
+      throw new Error('EACCES: permission denied');
+    });
+
+    verifyCodeowners();
+
+    expect(core.setFailed).toHaveBeenCalledWith(
+      expect.stringContaining('EACCES: permission denied'),
+    );
+    expect(core.setOutput).toHaveBeenCalledWith(
+      'errorMessage',
+      expect.stringContaining('EACCES: permission denied'),
+    );
+  });
+
+  it('ignores owners-only CODEOWNERS lines with a warning naming the line', () => {
+    const warnSpy = vi.spyOn(core, 'warning').mockImplementation(() => {});
+
+    readFileSyncMock.mockImplementation((filepath) => {
+      if (filepath === '.github/CODEOWNERS') {
+        return '@global-owner\nfile1.js @team1\n';
+      }
+      return '';
+    });
+
+    verifyCodeowners();
+
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining('@global-owner'),
+    );
+    // file2-5.js are unowned (the owners-only line did not become a `*`-style rule).
+    expect(core.setOutput).toHaveBeenCalledWith(
+      'unownedFiles',
+      'file2.js\nfile3.js\nfile4.js\nfile5.js',
+    );
+    warnSpy.mockRestore();
   });
 
   it('skips verification when inputs exceed the combined size limit without failing', () => {

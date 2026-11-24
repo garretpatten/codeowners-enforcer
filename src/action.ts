@@ -1,11 +1,12 @@
 import * as core from '@actions/core';
 import * as fs from 'fs';
 import {
-  handleWhiteSpaceInFilepaths,
   listChangedFilesWithoutOwnership,
   parseCodeownersFile,
+  parseFileListInput,
   parseIgnoreFileContent,
 } from './codeowners';
+import type { CodeownerRule } from './codeowners';
 
 const INPUT_CHANGED_FILES = 'changedFiles';
 const INPUT_DELETED_FILES = 'deletedFiles';
@@ -27,11 +28,11 @@ export function shouldSkipForInputSize(
   );
 }
 
-/** Human-readable failure body for annotations and the `errorMessage` output. */
+/** Human-readable failure body for annotations and the `errorMessage` output. Unowned paths are wrapped in backticks so they render inert in markdown contexts. */
 export function buildFailureMessage(unowned: string[]): string {
   let message = '\nReview the ownership of the following files:\n';
   for (const file of unowned) {
-    message += `    - ${file}\n`;
+    message += `    - \`${file}\`\n`;
   }
   message +=
     '\nPlease update `.github/CODEOWNERS` for the paths above. See GitHub’s documentation on code owners:\n' +
@@ -53,27 +54,39 @@ export function logUnownedFilesForJob(unowned: string[]): void {
   }
 }
 
-function readCodeownersText(): string {
-  return fs.readFileSync('.github/CODEOWNERS', 'utf8');
-}
-
-function loadIgnorePatterns(): string[] {
-  const githubPath = '.github/.codeownersignore';
-  const legacyPath = '.codeownersignore';
-  if (fs.existsSync(githubPath)) {
-    return parseIgnoreFileContent(fs.readFileSync(githubPath, 'utf8'));
-  }
-  if (fs.existsSync(legacyPath)) {
-    return parseIgnoreFileContent(fs.readFileSync(legacyPath, 'utf8'));
-  }
-  return [];
-}
+/**
+ * Candidate CODEOWNERS locations in GitHub's documented precedence order.
+ */
+const CODEOWNERS_PATHS = [
+  '.github/CODEOWNERS',
+  'CODEOWNERS',
+  'docs/CODEOWNERS',
+] as const;
 
 /**
- * Loads workflow inputs, evaluates `.github/CODEOWNERS` against changed paths, and fails the step
- * (via `core.setFailed`) when any changed file lacks an effective owner, setting the `errorMessage` output.
+ * Loads workflow inputs, evaluates CODEOWNERS against changed paths, and fails the step
+ * (via `core.setFailed`) when any changed file lacks an effective owner, setting the
+ * `errorMessage` output. The `unownedFiles` / `errorMessage` outputs are always set
+ * (empty string when the check passes) so downstream steps can test `== ''`.
+ *
+ * Unexpected errors (missing CODEOWNERS file, unreadable file, ...) are reported through
+ * `core.setFailed` instead of surfacing as an unhandled crash.
  */
 export function verifyCodeowners(): void {
+  // Set the failure outputs before anything can fail so the runner reliably records them.
+  core.setOutput('unownedFiles', '');
+  core.setOutput('errorMessage', '');
+
+  try {
+    runVerification();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    core.setOutput('errorMessage', message);
+    core.setFailed(message);
+  }
+}
+
+function runVerification(): void {
   const changedRaw = core.getInput(INPUT_CHANGED_FILES);
   const deletedRaw = core.getInput(INPUT_DELETED_FILES);
 
@@ -90,10 +103,10 @@ export function verifyCodeowners(): void {
     return;
   }
 
-  const changedFiles = handleWhiteSpaceInFilepaths(changedRaw);
-  const deletedFiles = handleWhiteSpaceInFilepaths(deletedRaw);
+  const changedFiles = parseFileListInput(changedRaw);
+  const deletedFiles = parseFileListInput(deletedRaw);
   const ignorePatterns = loadIgnorePatterns();
-  const rules = parseCodeownersFile(readCodeownersText());
+  const rules = readCodeownersRules();
   const unowned = listChangedFilesWithoutOwnership(
     changedFiles,
     rules,
@@ -107,10 +120,37 @@ export function verifyCodeowners(): void {
 
   const errorMessage = buildFailureMessage(unowned);
   logUnownedFilesForJob(unowned);
-  // Set outputs before marking the step failed so the runner reliably records them for later steps.
   core.setOutput('unownedFiles', unowned.join('\n'));
   core.setOutput('errorMessage', errorMessage);
   core.setFailed(errorMessage);
+}
+
+/**
+ * Reads the CODEOWNERS file from the first candidate location that exists (GitHub
+ * precedence: `.github/CODEOWNERS`, root `CODEOWNERS`, `docs/CODEOWNERS`); throws when
+ * none exists or the file cannot be read.
+ */
+function readCodeownersRules(): CodeownerRule[] {
+  const path = CODEOWNERS_PATHS.find((p) => fs.existsSync(p));
+  if (!path) {
+    throw new Error(
+      'No CODEOWNERS file found (looked in .github/CODEOWNERS, CODEOWNERS, docs/CODEOWNERS). ' +
+        'Create one, or use `.github/.codeownersignore` to skip paths without requiring an owner.',
+    );
+  }
+  return parseCodeownersFile(fs.readFileSync(path, 'utf8'));
+}
+
+function loadIgnorePatterns(): string[] {
+  const githubPath = '.github/.codeownersignore';
+  const legacyPath = '.codeownersignore';
+  if (fs.existsSync(githubPath)) {
+    return parseIgnoreFileContent(fs.readFileSync(githubPath, 'utf8'));
+  }
+  if (fs.existsSync(legacyPath)) {
+    return parseIgnoreFileContent(fs.readFileSync(legacyPath, 'utf8'));
+  }
+  return [];
 }
 
 if (require.main === module) {
