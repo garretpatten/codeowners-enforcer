@@ -61,7 +61,7 @@ jobs:
 
       - name: Configure Git Safe Directory
         run: |
-          git config --global --add safe.directory $GITHUB_WORKSPACE
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Compute changed and deleted paths
         id: filelists
@@ -212,7 +212,7 @@ jobs:
       - name: Container Cleanup
         if: always()
         run: |
-          find $GITHUB_WORKSPACE -mindepth 1 -delete \
+          find "$GITHUB_WORKSPACE" -mindepth 1 -delete \
             || echo "Container Cleanup Complete"
         shell: sh
 
@@ -220,5 +220,5 @@ jobs:
         if: always()
         run: |
           # Thoroughly clean workspace
-          find $GITHUB_WORKSPACE -mindepth 1 -delete 2>/dev/null || \
-          rm -rf $GITHUB_WORKSPACE/* $GITHUB_WORKSPACE/.[!.]* 2>/dev/null
+          find "$GITHUB_WORKSPACE" -mindepth 1 -delete 2>/dev/null || \
+          rm -rf "${GITHUB_WORKSPACE:?}"/* "${GITHUB_WORKSPACE:?}"/.[!.]* 2>/dev/null
